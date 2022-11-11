@@ -1,10 +1,14 @@
+import argparse
 import json
+import sys
 import time
+from dataclasses import dataclass
+from typing import Optional
 
 import modal
 import numpy as np
 
-stub = modal.Stub()
+stub = modal.Stub("dispict")
 
 stub.image = modal.Image.debian_slim().pip_install(["numpy"])
 
@@ -29,6 +33,7 @@ if stub.is_inside(stub.clip_image):
     image=stub.clip_image,
     shared_volumes={"/root/.cache": sv},
     concurrency_limit=20,
+    keep_warm=True,
 )
 def run_clip_text(texts: list[str]):
     """Run pretrained CLIP on a list of texts.
@@ -99,28 +104,133 @@ def run_clip_images(image_urls: list[str]):
         return missing_indices, model.encode_image(image_input).float().numpy()
 
 
+@dataclass
+class Artwork:
+    id: int
+    objectnumber: str
+    url: str
+    image_url: str
+
+    dimensions: str
+    dimheight: float
+    dimwidth: float
+
+    title: Optional[str]  # plaintext title
+    description: Optional[str]  # plaintext description
+    labeltext: Optional[str]  # optional label text
+    people: list  # information about artists
+    dated: str  # "c. 1950" or "1967-68" or "18th century"
+    datebegin: int  # numerical year or 0
+    dateend: int  # numerical year or 0
+    century: Optional[str]  # alternative to "dated" column
+
+    department: str  # categorical, about a dozen departments
+    division: Optional[str]  # modern, european/american, or asian/mediterranean
+    culture: Optional[str]  # American, Dutch, German, ...
+    classification: str  # Photographs or Prints or ...
+    technique: Optional[str]  # Lithograph, Etching, Gelatin silver print, ...
+    medium: Optional[str]  # Graphite on paper, Oil on canvas, ...
+
+    accessionyear: Optional[int]  # when the item was added
+    verificationlevel: int  # How verified a work is(?)
+    totaluniquepageviews: int  # a proxy for popularity
+    totalpageviews: int  # a proxy for popularity
+
+    copyright: Optional[str]  # copyright status
+    creditline: str  # who donated this artwork
+
+
+data: list[Artwork] = []
+data_by_id: dict[int, Artwork] = {}
+
+
+def populate_data(filename: str) -> None:
+    global data, data_by_id
+    if not data:
+        with open(filename, "r") as f:
+            data = [Artwork(**row) for row in json.load(f)]
+        for row in data:
+            data_by_id[row.id] = row
+
+
+embeddings: Optional[np.ndarray] = None  # [n_images, n_features]
+embeddings_ids: list[int] = []
+
+
+def populate_embeddings(filename: str) -> None:
+    global embeddings, embeddings_ids
+    if embeddings is None:
+        with np.load(filename) as npz_file:
+            ids = npz_file.files
+            embeddings_ids = [int(x) for x in ids]
+            embeddings = np.vstack([npz_file[x] for x in ids])
+            embeddings /= np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+
+@dataclass
+class SearchResult:
+    score: float
+    artwork: Artwork
+
+
+@stub.webhook(
+    mounts=[
+        modal.Mount("/data", local_file="data/artmuseums-clean.json"),
+        modal.Mount("/data", local_file="data/embeddings.npz"),
+    ],
+    keep_warm=True,
+)
+def suggestions(text: str, n: int = 50) -> list[SearchResult]:
+    """Return a list of artworks that are similar to the given text."""
+    populate_data("/data/artmuseums-clean.json")
+    populate_embeddings("/data/embeddings.npz")
+    features = run_clip_text([text])[0, :]
+    features /= np.linalg.norm(features)
+    scores = embeddings @ features  # shape: [n_images]
+    indices = np.flip(np.argsort(scores))[:n]
+    return [
+        SearchResult(score=scores[i], artwork=data_by_id[embeddings_ids[i]])
+        for i in indices
+    ]
+
+
 if __name__ == "__main__":
-    with open("data/artmuseums-clean.json", "r") as f:
-        data = json.load(f)
+    parser = argparse.ArgumentParser("dispict")
+    subparsers = parser.add_subparsers(dest="sub")
 
-    chunk_size = 32
-    chunked_ids = []
-    chunked_urls = []
-    for idx in range(0, len(data), chunk_size):
-        chunked_ids.append([row["id"] for row in data[idx : idx + chunk_size]])
-        chunked_urls.append([row["image_url"] for row in data[idx : idx + chunk_size]])
+    subparsers.add_parser("embed-images")
+    subparsers.add_parser("webhook")
 
-    with stub.run():
-        results = list(run_clip_images.map(chunked_urls))
+    args = parser.parse_args()
+    if args.sub == "embed-images":
+        populate_data("data/artmuseums-clean.json")
 
-    all_embeddings: dict[str, np.ndarray] = {}
-    for ids, (missing, embeddings) in zip(chunked_ids, results):
-        assert len(ids) == len(missing) + len(embeddings)
-        embeddings_idx = 0
-        for i, id in enumerate(ids):
-            if i not in missing:
-                all_embeddings[str(id)] = embeddings[embeddings_idx, :]
-                embeddings_idx += 1
+        chunk_size = 32
+        chunked_ids = []
+        chunked_urls = []
+        for idx in range(0, len(data), chunk_size):
+            chunked_ids.append([row.id for row in data[idx : idx + chunk_size]])
+            chunked_urls.append([row.image_url for row in data[idx : idx + chunk_size]])
 
-    print(f"Finished embedding {len(all_embeddings)} images out of {len(data)}")
-    np.savez_compressed("data/embeddings.npz", **all_embeddings)
+        with stub.run():
+            results = list(run_clip_images.map(chunked_urls))
+
+        all_embeddings: dict[str, np.ndarray] = {}
+        for ids, (missing, embeddings) in zip(chunked_ids, results):
+            assert len(ids) == len(missing) + len(embeddings)
+            embeddings_idx = 0
+            for i, id in enumerate(ids):
+                if i not in missing:
+                    all_embeddings[str(id)] = embeddings[embeddings_idx, :]
+                    embeddings_idx += 1
+
+        print(f"Finished embedding {len(all_embeddings)} images out of {len(data)}")
+        np.savez_compressed("data/embeddings.npz", **all_embeddings)
+
+    elif args.sub == "webhook":
+        print("Serving webhook at a temporary URL. Use `modal app deploy` to deploy.")
+        stub.serve()
+
+    else:
+        parser.print_help()
+        sys.exit(1)
