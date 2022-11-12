@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { fade } from "svelte/transition";
+
   import { loadSuggestions, type SearchResult } from "./api";
 
   let query: string = "";
@@ -7,6 +9,7 @@
 
   async function submit() {
     searching = true;
+    results = [];
     try {
       results = await loadSuggestions(query);
     } catch (error: any) {
@@ -31,12 +34,12 @@
 </form>
 
 <div class="space-y-4">
-  {#each results.slice(0, 40) as result}
-    <div class="py-2">
+  {#each results.slice(0, 40) as result (result.artwork.id)}
+    <div class="py-2" transition:fade>
       <a href={result.artwork.url}>
         <img
-          class="max-w-[min(36rem,100%)]"
-          src={result.artwork.image_url}
+          class="inline-block max-w-[min(36rem,100%)]"
+          src={result.artwork.image_url + "?width=800"}
           alt={result.artwork.title}
         />
       </a>
