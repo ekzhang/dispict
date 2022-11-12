@@ -1,16 +1,25 @@
+"""Deep learning and backend code for dispict.
+
+See the README for more information. You need a Modal account to run this, and
+you also need to download the dataset using the notebooks in this repository
+first. This program downloads and embeds 25,000 images from the Harvard Art
+Museums, then hosts recommendations at a serverless web endpoint.
+"""
+
 import argparse
 import json
 import sys
 import time
 from dataclasses import dataclass
-from typing import Optional
+from fastapi import Response
+from typing import Any, Optional
 
 import modal
 import numpy as np
 
 stub = modal.Stub("dispict")
 
-stub.image = modal.Image.debian_slim().pip_install(["numpy"])
+stub.image = modal.Image.debian_slim().pip_install(["numpy", "h5py", "annoy"])
 
 stub.clip_image = (
     modal.Image.debian_slim()
@@ -153,18 +162,30 @@ def populate_data(filename: str) -> None:
             data_by_id[row.id] = row
 
 
-embeddings: Optional[np.ndarray] = None  # [n_images, n_features]
+embeddings: Any = None
 embeddings_ids: list[int] = []
 
 
 def populate_embeddings(filename: str) -> None:
-    global embeddings, embeddings_ids
+    from annoy import AnnoyIndex
+    import h5py
+
+    global embeddings
+    global embeddings_ids
     if embeddings is None:
-        with np.load(filename) as npz_file:
-            ids = npz_file.files
-            embeddings_ids = [int(x) for x in ids]
-            embeddings = np.vstack([npz_file[x] for x in ids])
-            embeddings /= np.linalg.norm(embeddings, axis=1, keepdims=True)
+        print("Loading embeddings")
+        embeddings = AnnoyIndex(512, "angular")
+        with h5py.File(filename, "r") as f:
+            print("Opened hdf5 file")
+            ids: h5py.Dataset = f["ids"]  # type: ignore
+            matrix: h5py.Dataset = f["embeddings"]  # type: ignore
+            embeddings_ids = list(ids)
+            for i in range(matrix.shape[0]):
+                features = matrix[i, :]
+                embeddings.add_item(i, features)
+        print("Finished adding items")
+        embeddings.build(12)
+        print("Built trees")
 
 
 @dataclass
@@ -176,21 +197,22 @@ class SearchResult:
 @stub.webhook(
     mounts=[
         modal.Mount("/data", local_file="data/artmuseums-clean.json"),
-        modal.Mount("/data", local_file="data/embeddings.npz"),
+        modal.Mount("/data", local_file="data/embeddings.hdf5"),
     ],
     keep_warm=True,
 )
-def suggestions(text: str, n: int = 50) -> list[SearchResult]:
+def suggestions(response: Response, text: str, n: int = 50) -> list[SearchResult]:
     """Return a list of artworks that are similar to the given text."""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+
     populate_data("/data/artmuseums-clean.json")
-    populate_embeddings("/data/embeddings.npz")
+    populate_embeddings("/data/embeddings.hdf5")
     features = run_clip_text([text])[0, :]
     features /= np.linalg.norm(features)
-    scores = embeddings @ features  # shape: [n_images]
-    indices = np.flip(np.argsort(scores))[:n]
+    indices, scores = embeddings.get_nns_by_vector(features, n, include_distances=True)
     return [
-        SearchResult(score=scores[i], artwork=data_by_id[embeddings_ids[i]])
-        for i in indices
+        SearchResult(score=100 * (2.0 - score), artwork=data_by_id[embeddings_ids[i]])
+        for i, score in zip(indices, scores)
     ]
 
 
@@ -203,6 +225,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.sub == "embed-images":
+        import h5py
+
         populate_data("data/artmuseums-clean.json")
 
         chunk_size = 32
@@ -215,17 +239,23 @@ if __name__ == "__main__":
         with stub.run():
             results = list(run_clip_images.map(chunked_urls))
 
-        all_embeddings: dict[str, np.ndarray] = {}
+        all_embeddings: dict[int, np.ndarray] = {}
         for ids, (missing, embeddings) in zip(chunked_ids, results):
             assert len(ids) == len(missing) + len(embeddings)
             embeddings_idx = 0
             for i, id in enumerate(ids):
                 if i not in missing:
-                    all_embeddings[str(id)] = embeddings[embeddings_idx, :]
+                    all_embeddings[id] = embeddings[embeddings_idx, :]
                     embeddings_idx += 1
 
         print(f"Finished embedding {len(all_embeddings)} images out of {len(data)}")
-        np.savez_compressed("data/embeddings.npz", **all_embeddings)
+
+        ids, embedding_matrix = zip(*all_embeddings.items())
+        embedding_matrix = np.vstack(embedding_matrix)
+        with h5py.File("data/embeddings.hdf5", "w") as f:
+            f.create_dataset("embeddings", data=embedding_matrix)
+            f.create_dataset("ids", data=ids)
+        print("Saved to hdf5 file")
 
     elif args.sub == "webhook":
         print("Serving webhook at a temporary URL. Use `modal app deploy` to deploy.")
