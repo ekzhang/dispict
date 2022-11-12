@@ -127,7 +127,7 @@ class Artwork:
     title: Optional[str]  # plaintext title
     description: Optional[str]  # plaintext description
     labeltext: Optional[str]  # optional label text
-    people: list  # information about artists
+    people: list[str]  # information about artists
     dated: str  # "c. 1950" or "1967-68" or "18th century"
     datebegin: int  # numerical year or 0
     dateend: int  # numerical year or 0
