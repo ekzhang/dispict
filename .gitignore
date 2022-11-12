@@ -4,3 +4,8 @@ __pycache__/
 .vscode/
 
 /data
+
+node_modules/
+dist/
+dist-ssr/
+*.local
