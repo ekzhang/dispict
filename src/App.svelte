@@ -1,10 +1,14 @@
 <script lang="ts">
   import ArtSearch from "./lib/ArtSearch.svelte";
+  import Welcome from "./lib/Welcome.svelte";
 </script>
+
+<Welcome />
 
 <main class="max-w-screen-md mx-auto px-4 py-8">
   <h1 class="text-4xl mb-4">
-    dispict <span class="text-gray-400 text-xl">(tech preview)</span>
+    <span class="fontvar-heading">dispict</span>
+    <span class="text-gray-400 text-xl">(tech preview)</span>
   </h1>
 
   <p class="text-pink-700 border-l-4 border-pink-200 pl-3">

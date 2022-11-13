@@ -11,6 +11,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@fontsource/roboto-flex": "^4.5.2",
     "svelte": "^3.52.0"
   },
   "devDependencies": {
