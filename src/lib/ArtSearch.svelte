@@ -34,7 +34,7 @@
 </form>
 
 <div class="space-y-4">
-  {#each results.slice(0, 40) as result (result.artwork.id)}
+  {#each results.slice(0, 40) as result (result)}
     <div class="py-2" transition:fade>
       <a href={result.artwork.url}>
         <img
