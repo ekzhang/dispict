@@ -26,7 +26,7 @@ stub.clip_image = (
     .pip_install(["git+https://github.com/openai/CLIP.git"])
 )
 
-stub.webhook_image = modal.Image.debian_slim().pip_install(["numpy", "h5py", "annoy"])
+stub.webhook_image = modal.Image.debian_slim().pip_install(["numpy", "h5py"])
 
 sv = modal.SharedVolume().persist("clip-cache")
 
@@ -156,21 +156,15 @@ def read_data(filename: str) -> list[Artwork]:
 
 def read_embeddings(filename: str):
     import h5py
-    from annoy import AnnoyIndex
 
     print("Loading embeddings")
-    embeddings = AnnoyIndex(512, "angular")
     with h5py.File(filename, "r") as f:
-        print("Opened hdf5 file")
         ids: h5py.Dataset = f["ids"]  # type: ignore
         matrix: h5py.Dataset = f["embeddings"]  # type: ignore
+        embeddings = np.array(matrix)
+        embeddings /= np.linalg.norm(embeddings, axis=1, keepdims=True)
         embeddings_ids = list(ids)
-        for i in range(matrix.shape[0]):
-            features = matrix[i, :]
-            embeddings.add_item(i, features)
-    print("Finished adding items")
-    embeddings.build(12)
-    print("Built trees")
+    print("Finished loading embeddings")
     return embeddings, embeddings_ids
 
 
@@ -201,10 +195,11 @@ def suggestions(response: Response, text: str, n: int = 50) -> list[SearchResult
     response.headers["Access-Control-Allow-Origin"] = "*"
     features = run_clip_text([text])[0, :]
     features /= np.linalg.norm(features)
-    indices, scores = embeddings.get_nns_by_vector(features, n, include_distances=True)
+    scores = embeddings @ features
+    index_array = np.argsort(scores)
     return [
-        SearchResult(score=100 * (2.0 - score), artwork=data_by_id[embeddings_ids[i]])
-        for i, score in zip(indices, scores)
+        SearchResult(score=50 * (1 + scores[i]), artwork=data_by_id[embeddings_ids[i]])
+        for i in reversed(index_array[-n:])
     ]
 
 
