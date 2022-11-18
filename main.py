@@ -19,14 +19,14 @@ import numpy as np
 
 stub = modal.Stub("dispict")
 
-stub.image = modal.Image.debian_slim().pip_install(["numpy", "h5py", "annoy"])
-
 stub.clip_image = (
     modal.Image.debian_slim()
     .apt_install(["git"])
     .pip_install(["ftfy", "regex", "tqdm", "numpy", "torch"])
     .pip_install(["git+https://github.com/openai/CLIP.git"])
 )
+
+stub.webhook_image = modal.Image.debian_slim().pip_install(["numpy", "h5py", "annoy"])
 
 sv = modal.SharedVolume().persist("clip-cache")
 
@@ -149,43 +149,29 @@ class Artwork:
     creditline: str  # who donated this artwork
 
 
-data: list[Artwork] = []
-data_by_id: dict[int, Artwork] = {}
+def read_data(filename: str) -> list[Artwork]:
+    with open(filename, "r") as f:
+        return [Artwork(**row) for row in json.load(f)]
 
 
-def populate_data(filename: str) -> None:
-    global data, data_by_id
-    if not data:
-        with open(filename, "r") as f:
-            data = [Artwork(**row) for row in json.load(f)]
-        for row in data:
-            data_by_id[row.id] = row
-
-
-embeddings: Any = None
-embeddings_ids: list[int] = []
-
-
-def populate_embeddings(filename: str) -> None:
-    from annoy import AnnoyIndex
+def read_embeddings(filename: str):
     import h5py
+    from annoy import AnnoyIndex
 
-    global embeddings
-    global embeddings_ids
-    if embeddings is None:
-        print("Loading embeddings")
-        embeddings = AnnoyIndex(512, "angular")
-        with h5py.File(filename, "r") as f:
-            print("Opened hdf5 file")
-            ids: h5py.Dataset = f["ids"]  # type: ignore
-            matrix: h5py.Dataset = f["embeddings"]  # type: ignore
-            embeddings_ids = list(ids)
-            for i in range(matrix.shape[0]):
-                features = matrix[i, :]
-                embeddings.add_item(i, features)
-        print("Finished adding items")
-        embeddings.build(12)
-        print("Built trees")
+    print("Loading embeddings")
+    embeddings = AnnoyIndex(512, "angular")
+    with h5py.File(filename, "r") as f:
+        print("Opened hdf5 file")
+        ids: h5py.Dataset = f["ids"]  # type: ignore
+        matrix: h5py.Dataset = f["embeddings"]  # type: ignore
+        embeddings_ids = list(ids)
+        for i in range(matrix.shape[0]):
+            features = matrix[i, :]
+            embeddings.add_item(i, features)
+    print("Finished adding items")
+    embeddings.build(12)
+    print("Built trees")
+    return embeddings, embeddings_ids
 
 
 @dataclass
@@ -194,7 +180,16 @@ class SearchResult:
     artwork: Artwork
 
 
+if stub.is_inside(stub.webhook_image):
+    data = read_data("/data/artmuseums-clean.json")
+    data_by_id: dict[int, Artwork] = {}
+    for row in data:
+        data_by_id[row.id] = row
+    embeddings, embeddings_ids = read_embeddings("/data/embeddings.hdf5")
+
+
 @stub.webhook(
+    image=stub.webhook_image,
     mounts=[
         modal.Mount("/data", local_file="data/artmuseums-clean.json"),
         modal.Mount("/data", local_file="data/embeddings.hdf5"),
@@ -204,9 +199,6 @@ class SearchResult:
 def suggestions(response: Response, text: str, n: int = 50) -> list[SearchResult]:
     """Return a list of artworks that are similar to the given text."""
     response.headers["Access-Control-Allow-Origin"] = "*"
-
-    populate_data("/data/artmuseums-clean.json")
-    populate_embeddings("/data/embeddings.hdf5")
     features = run_clip_text([text])[0, :]
     features /= np.linalg.norm(features)
     indices, scores = embeddings.get_nns_by_vector(features, n, include_distances=True)
@@ -227,7 +219,7 @@ if __name__ == "__main__":
     if args.sub == "embed-images":
         import h5py
 
-        populate_data("data/artmuseums-clean.json")
+        data = read_data("data/artmuseums-clean.json")
 
         chunk_size = 32
         chunked_ids = []
