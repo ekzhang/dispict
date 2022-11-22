@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  @apply overscroll-none;
+}
+
 .fontvar-heading {
   font-variation-settings: "wght" 650, "wdth" 120, "XOPQ" 129, "YOPQ" 25;
 }

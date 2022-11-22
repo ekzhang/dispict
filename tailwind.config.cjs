@@ -6,7 +6,8 @@ const config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Roboto FlexVariable", ...defaultTheme.fontFamily.sans],
+        sans: ["'Roboto FlexVariable'", ...defaultTheme.fontFamily.sans],
+        serif: ["'Source Serif 4'", ...defaultTheme.fontFamily.serif],
       },
     },
   },

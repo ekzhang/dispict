@@ -1,13 +1,23 @@
 <script lang="ts">
   import ArtSearch from "./lib/ArtSearch.svelte";
   import Welcome from "./lib/Welcome.svelte";
+
+  const navigationType = (
+    window.performance.getEntriesByType(
+      "navigation"
+    )[0] as PerformanceNavigationTiming
+  )?.type;
+
+  let welcome = !navigationType || navigationType === "navigate";
 </script>
 
-<Welcome />
+<Welcome open={welcome} on:close={() => (welcome = false)} />
 
 <main class="max-w-screen-md mx-auto px-4 py-8">
   <h1 class="text-4xl mb-4">
-    <span class="fontvar-heading">dispict</span>
+    <button class="fontvar-heading" on:click={() => (welcome = true)}
+      >dispict</button
+    >
     <span class="text-gray-400 text-xl">(tech preview)</span>
   </h1>
 

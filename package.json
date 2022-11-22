@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fontsource/roboto-flex": "^4.5.2",
+    "@fontsource/source-serif-4": "^4.5.16",
     "svelte": "^3.53.1"
   },
   "devDependencies": {
