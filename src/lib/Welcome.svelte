@@ -2,12 +2,25 @@
   import { createEventDispatcher } from "svelte";
   import { fade, fly } from "svelte/transition";
   import { sineInOut } from "svelte/easing";
+  import { spring } from "svelte/motion";
 
   const dispatch = createEventDispatcher<{ close: void }>();
 
   export let open: boolean;
 
+  let mouseX = spring<number>(-142);
+  let mouseY = spring<number>(-142);
   let height: number;
+  let welcomeEl: HTMLDivElement;
+
+  function handleMouse(event: MouseEvent) {
+    if ($mouseX == -142) {
+      mouseX.set(event.clientX, { hard: true });
+      mouseY.set(event.clientY, { hard: true });
+    }
+    mouseX.set(event.clientX - welcomeEl.offsetLeft);
+    mouseY.set(event.clientY - welcomeEl.offsetTop);
+  }
 
   function handleWheel(event: WheelEvent) {
     if (open) {
@@ -19,16 +32,32 @@
   }
 </script>
 
+{#if open && $mouseX !== -142}
+  <div
+    class="fixed z-40 inset-6 md:inset-8 rounded-2xl overflow-hidden"
+    in:fade={{ duration: 200, delay: 200 }}
+    out:fade={{ duration: 150 }}
+  >
+    <div
+      class="radial-gradient relative z-30 w-[360px] h-[360px] rounded-full"
+      style:left="{$mouseX}px"
+      style:top="{$mouseY}px"
+      style:transform="translate(-50%, -50%)"
+    />
+  </div>
+{/if}
+
 {#if open}
   <div
     class="fixed z-40 inset-6 md:inset-8 rounded-2xl
-    backdrop-blur-lg border border-rose-200
-    bg-gradient-to-br from-pink-200/75 to-orange-200/75
+    backdrop-blur-lg border border-gray-300 bg-gray-50/75
     flex flex-col justify-between items-center px-4 sm:px-6"
+    on:mousemove={handleMouse}
     on:wheel={handleWheel}
     in:fade={{ duration: 200 }}
     out:fly={{ y: -height, duration: 1000, easing: sineInOut }}
     bind:clientHeight={height}
+    bind:this={welcomeEl}
   >
     <div class="py-8">
       <h1 class="text-center text-4xl sm:text-5xl fontvar-heading mb-2 sm:mb-4">
@@ -92,6 +121,19 @@
 {/if}
 
 <style lang="postcss">
+  .radial-gradient {
+    background: radial-gradient(
+      circle at center,
+      theme(colors.indigo.600) 0,
+      theme(colors.blue.700) 20%,
+      theme(colors.green.600) 40%,
+      theme(colors.orange.500) 50%,
+      theme(colors.pink.500) 60%,
+      #ffffff00 100%
+    );
+    opacity: 60%;
+  }
+
   p.tagline {
     font-variation-settings: "GRAD" 150, "YOPQ" 50, "XTRA" 500, "YTLC" 570;
     @apply tracking-tight;
