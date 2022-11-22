@@ -11,8 +11,7 @@ import json
 import sys
 import time
 from dataclasses import dataclass
-from fastapi import Response
-from typing import Any, Optional
+from typing import Optional
 
 import modal
 import numpy as np
@@ -188,9 +187,8 @@ if stub.is_inside(stub.webhook_image):
         modal.Mount("/data", local_file="data/embeddings.hdf5"),
     ],
 )
-def suggestions(response: Response, text: str, n: int = 50) -> list[SearchResult]:
+def suggestions(text: str, n: int = 50) -> list[SearchResult]:
     """Return a list of artworks that are similar to the given text."""
-    response.headers["Access-Control-Allow-Origin"] = "*"
     features = run_clip_text([text])[0, :]
     features /= np.linalg.norm(features)
     scores = embeddings @ features
