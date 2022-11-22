@@ -33,7 +33,7 @@
 
   function handleKeydown(event: KeyboardEvent) {
     if (open) {
-      if (["Enter", " ", "Tab"].includes(event.key)) {
+      if (["Enter", " ", "Tab", "Escape"].includes(event.key)) {
         event.preventDefault();
         dispatch("close");
       }
