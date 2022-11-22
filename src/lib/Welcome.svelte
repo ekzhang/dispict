@@ -31,9 +31,22 @@
     }
   }
 
+  function handleKeydown(event: KeyboardEvent) {
+    if (open) {
+      if (["Enter", " ", "Tab"].includes(event.key)) {
+        event.preventDefault();
+        dispatch("close");
+      }
+    }
+  }
+
   let init = false;
   onMount(() => {
     init = true;
+    document.body.addEventListener("keydown", handleKeydown);
+    return () => {
+      document.body.removeEventListener("keydown", handleKeydown);
+    };
   });
 </script>
 
@@ -109,8 +122,8 @@
       <div class="py-10" in:fade={{ delay: 2600 }}>
         <button
           class="rounded-full px-5 py-2 bg-black text-white text-lg
-        hover:bg-white hover:text-black hover:ring-1 hover:ring-black
-        active:bg-rose-100 active:text-black active:ring-1 active:ring-black transition-colors"
+          hover:bg-white hover:text-black hover:ring-1 hover:ring-black
+          active:bg-rose-100 active:text-black active:ring-1 active:ring-black transition-colors"
           on:click={() => dispatch("close")}
         >
           Explore the Gallery
