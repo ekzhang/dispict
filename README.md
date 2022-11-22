@@ -3,6 +3,8 @@
 Design a growing artistic exhibit of your own making. Bring your own labels and
 context.
 
+[![dispict cover image](./public/assets/social-image.jpg)](https://dispict.com)
+
 **[dispict.com](https://dispict.com)** greets you with a blank canvas. You begin
 typing. Your writing becomes a _label_, and related artworks of the past appear
 spatially around the text you wrote. As you pan and zoom, you can add additional
