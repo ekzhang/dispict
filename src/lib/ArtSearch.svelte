@@ -55,9 +55,9 @@
       {positions[i][0] * PIXELS_PER_CM}px,
       {positions[i][1] * PIXELS_PER_CM}px)"
     >
-      <a href={result.artwork.url}>
+      <a href={result.artwork.url} target="_blank" rel="noopener noreferrer">
         <img
-          class="inline-block object-contain bg-gray-100 hover:ring hover:ring-black"
+          class="inline-block object-contain bg-gray-100 rainbow-hover-border"
           style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
           style:height="{result.artwork.dimheight * PIXELS_PER_CM}px"
           src={result.artwork.image_url + "?width=800"}
@@ -67,3 +67,21 @@
     </div>
   {/each}
 </main>
+
+<style lang="postcss">
+  .rainbow-hover-border {
+    border: 3px solid transparent;
+    box-sizing: content-box;
+  }
+  .rainbow-hover-border:hover {
+    border-image: repeating-linear-gradient(
+      to bottom right,
+      #b827fc 0%,
+      #2c90fc 12.5%,
+      #b8fd33 25%,
+      #fec837 37.5%,
+      #fd1892 50%
+    );
+    border-image-slice: 1;
+  }
+</style>
