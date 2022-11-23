@@ -6,7 +6,7 @@ import type { Artwork } from "./api";
 
 const radiusChange = 5;
 const angleChange = (Math.sqrt(5) - 1) * Math.PI;
-const spaceBuffer = 3;
+const spaceBuffer = 4;
 
 /**
  * Returns geometric positions (in cm) for the center of each artwork.
@@ -18,9 +18,9 @@ export function layoutArtwork(pieces: Artwork[]): [number, number][] {
   const positions: [number, number][] = [];
   const tree = new RBush<BBox>();
   tree.insert({
-    minX: -36,
+    minX: -40,
     minY: -24,
-    maxX: 36,
+    maxX: 40,
     maxY: 24,
   });
   let iteration = 0;

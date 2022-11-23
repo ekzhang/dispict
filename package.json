@@ -14,6 +14,7 @@
     "@fontsource/roboto-flex": "^4.5.2",
     "@fontsource/source-serif-4": "^4.5.16",
     "lodash.debounce": "^4.0.8",
+    "panzoom": "^9.4.3",
     "rbush": "^3.0.1",
     "svelte": "^3.53.1"
   },

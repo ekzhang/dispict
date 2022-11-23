@@ -1,18 +1,45 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { fade } from "svelte/transition";
+  import panzoom, { type PanZoom } from "panzoom";
   import debounce from "lodash.debounce";
 
   import SearchInput from "./SearchInput.svelte";
-  import { loadSuggestions, type SearchResult } from "./api";
+  import { loadSuggestions, type Artwork, type SearchResult } from "./api";
   import { layoutArtwork } from "./geometry";
 
   export let active: boolean;
 
-  $: _ = active;
-
   const PIXELS_PER_CM = 5;
 
   let query = ""; // @hmr:keep
+
+  let frame: HTMLDivElement;
+  let panzoomInstance: PanZoom;
+  let lastPan = 0;
+  onMount(() => {
+    panzoomInstance = panzoom(frame, {
+      zoomSpeed: 0.1,
+      minZoom: 0.2,
+      maxZoom: 10,
+    });
+    panzoomInstance.on("panend", () => {
+      lastPan = Date.now();
+    });
+  });
+
+  $: if (panzoomInstance) {
+    if (active) panzoomInstance.resume();
+    else panzoomInstance.pause();
+  }
+
+  /** Handle when an artwork is selected for more details. */
+  function handleSelect(artwork: Artwork) {
+    // Hack to prevent click events after panning is finished.
+    if (lastPan < Date.now() - 30) {
+      window.open(artwork.url, "_blank");
+    }
+  }
 
   let results: SearchResult[] = [];
   let searching = 0;
@@ -45,35 +72,34 @@
   $: positions = layoutArtwork(results.map((r) => r.artwork));
 </script>
 
-<main
-  class="absolute inset-0 overflow-hidden flex justify-center items-center bg-gray-50"
->
-  <SearchInput bind:value={query} searching={searching > 0} />
+<main class="absolute inset-0 overflow-hidden bg-gray-50">
+  <div class="w-full h-full flex justify-center items-center" bind:this={frame}>
+    <SearchInput bind:value={query} searching={searching > 0} />
 
-  {#each results as result, i (result)}
-    <div
-      class="absolute"
-      transition:fade
-      style:transform="translate(
-      {positions[i][0] * PIXELS_PER_CM}px,
-      {positions[i][1] * PIXELS_PER_CM}px)"
-    >
-      <a
-        href={result.artwork.url}
-        class="cursor-default"
-        target="_blank"
-        rel="noopener noreferrer"
+    {#each results as result, i (result)}
+      <div
+        class="absolute"
+        transition:fade
+        style:transform="translate(
+        {positions[i][0] * PIXELS_PER_CM}px,
+        {positions[i][1] * PIXELS_PER_CM}px)"
       >
-        <img
-          class="inline-block object-contain bg-gray-100 rainbow-hover-border"
-          style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
-          style:height="{result.artwork.dimheight * PIXELS_PER_CM}px"
-          src={result.artwork.image_url + "?width=800"}
-          alt={result.artwork.title}
-        />
-      </a>
-    </div>
-  {/each}
+        <button
+          class="cursor-default"
+          on:click={() => handleSelect(result.artwork)}
+          on:touchend={() => handleSelect(result.artwork)}
+        >
+          <img
+            class="inline-block object-contain bg-gray-100 rainbow-hover-border"
+            style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
+            style:height="{result.artwork.dimheight * PIXELS_PER_CM}px"
+            src={result.artwork.image_url + "?width=800"}
+            alt={result.artwork.title}
+          />
+        </button>
+      </div>
+    {/each}
+  </div>
 </main>
 
 <style lang="postcss">
