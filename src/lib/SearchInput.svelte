@@ -19,6 +19,7 @@
     range.deleteContents();
     range.insertNode(document.createTextNode(text));
     range.collapse();
+    value = (event.target as HTMLTextAreaElement).textContent;
   }
 </script>
 

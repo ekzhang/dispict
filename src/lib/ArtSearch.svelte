@@ -15,7 +15,21 @@
   const PIXELS_PER_CM = 5;
   const SIDEBAR_WIDTH = 420;
 
-  let query = ""; // @hmr:keep
+  const STARTER_INPUTS = [
+    "bright landscape",
+    "drawing with freedom",
+    "abstract painting",
+    "muslim religious imagery",
+    "everything I see is green",
+    "friendship",
+    "sunset over the ocean",
+    "sturm und drang",
+    "delicious fruit",
+    "pablo picasso",
+    "tokugawa japan",
+  ];
+
+  let query = STARTER_INPUTS[Math.floor(Math.random() * STARTER_INPUTS.length)]; // @hmr:keep
 
   let frame: HTMLDivElement;
   let panzoomInstance: PanZoom;
