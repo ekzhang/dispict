@@ -16,15 +16,29 @@
 
   let frame: HTMLDivElement;
   let panzoomInstance: PanZoom;
-  let lastPan = 0;
+  let moving = false;
+  let lastPanzoom = 0;
+
+  let selected: Artwork | null = null;
+
   onMount(() => {
     panzoomInstance = panzoom(frame, {
       zoomSpeed: 0.1,
       minZoom: 0.2,
       maxZoom: 10,
     });
+    panzoomInstance.on("panstart", () => {
+      (document.activeElement as HTMLElement).blur();
+      moving = true;
+      selected = null;
+    });
     panzoomInstance.on("panend", () => {
-      lastPan = Date.now();
+      moving = false;
+      lastPanzoom = Date.now();
+    });
+    panzoomInstance.on("zoom", () => {
+      lastPanzoom = Date.now();
+      selected = null;
     });
   });
 
@@ -34,10 +48,18 @@
   }
 
   /** Handle when an artwork is selected for more details. */
-  function handleSelect(artwork: Artwork) {
+  function handleSelect(artwork: Artwork, position: [number, number]) {
     // Hack to prevent click events after panning is finished.
-    if (lastPan < Date.now() - 30) {
-      window.open(artwork.url, "_blank");
+    if (!moving && lastPanzoom < Date.now() - 30) {
+      const transform = panzoomInstance.getTransform();
+      panzoomInstance.smoothMoveTo(
+        -0.5 * frame.clientWidth * (transform.scale - 1) -
+          PIXELS_PER_CM * transform.scale * position[0],
+        -0.5 * frame.clientHeight * (transform.scale - 1) -
+          PIXELS_PER_CM * transform.scale * position[1]
+      );
+      selected = artwork;
+      // window.open(artwork.url, "_blank");
     }
   }
 
@@ -46,6 +68,7 @@
   let abortController = new AbortController();
 
   async function updateResults(query: string) {
+    selected = null;
     if (!query) {
       results = [];
       return;
@@ -86,11 +109,12 @@
       >
         <button
           class="cursor-default"
-          on:click={() => handleSelect(result.artwork)}
-          on:touchend={() => handleSelect(result.artwork)}
+          on:click={() => handleSelect(result.artwork, positions[i])}
+          on:touchend={() => handleSelect(result.artwork, positions[i])}
         >
           <img
-            class="inline-block object-contain bg-gray-100 rainbow-hover-border"
+            class="inline-block object-contain bg-gray-100 rainbow-hover-border transition-opacity"
+            class:grayed={selected && selected !== result.artwork}
             style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
             style:height="{result.artwork.dimheight * PIXELS_PER_CM}px"
             src={result.artwork.image_url + "?width=800"}
@@ -117,5 +141,9 @@
       #fd1892 50%
     );
     border-image-slice: 1;
+  }
+
+  .grayed {
+    opacity: 0.4;
   }
 </style>

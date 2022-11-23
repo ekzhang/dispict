@@ -26,6 +26,7 @@
   class="relative w-80 max-h-[200px] rounded z-10 bg-white border border-gray-100
   shadow hover:shadow-md transition-shadow overflow-y-auto"
   on:mousedown={(event) => event.stopPropagation()}
+  on:touchstart={(event) => event.stopPropagation()}
   on:dblclick={(event) => event.stopPropagation()}
 >
   <!-- svelte-ignore a11y-autofocus -->
