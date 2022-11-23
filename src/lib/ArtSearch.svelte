@@ -14,7 +14,7 @@
   let query = ""; // @hmr:keep
 
   let results: SearchResult[] = [];
-  let searching = false;
+  let searching = 0;
   let abortController = new AbortController();
 
   async function updateResults(query: string) {
@@ -22,7 +22,7 @@
       results = [];
       return;
     }
-    searching = true;
+    searching++;
     abortController.abort();
     const ctrl = new AbortController();
     abortController = ctrl;
@@ -34,7 +34,7 @@
         alert("an error occured: " + error.toString());
       }
     } finally {
-      searching = false;
+      searching--;
     }
   }
 
@@ -45,7 +45,7 @@
 <main
   class="absolute inset-0 cursor-crosshair overflow-hidden flex justify-center items-center bg-gray-50"
 >
-  <SearchInput bind:value={query} />
+  <SearchInput bind:value={query} searching={searching > 0} />
 
   {#each results.slice(0, 50) as result, i (result)}
     <div
