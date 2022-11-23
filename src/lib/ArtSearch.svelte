@@ -27,6 +27,11 @@
     "delicious fruit",
     "pablo picasso",
     "tokugawa japan",
+    "turbulent waves",
+    "tranquility",
+    "vivid dreams",
+    "baby jesus",
+    "the light of god",
   ];
 
   let query = STARTER_INPUTS[Math.floor(Math.random() * STARTER_INPUTS.length)]; // @hmr:keep
@@ -86,16 +91,13 @@
 
   async function updateResults(query: string) {
     selected = null;
-    if (!query) {
-      results = [];
-      return;
-    }
     searching++;
     abortController.abort();
     const ctrl = new AbortController();
     abortController = ctrl;
     results = [];
     try {
+      if (!query) return;
       results = await loadSuggestions(query, 64, ctrl.signal);
     } catch (error: any) {
       if (!ctrl.signal.aborted) {
