@@ -1,16 +1,19 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fade } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
+  import { fade, fly } from "svelte/transition";
   import panzoom, { type PanZoom } from "panzoom";
   import debounce from "lodash.debounce";
 
   import SearchInput from "./SearchInput.svelte";
+  import Sidebar from "./Sidebar.svelte";
   import { loadSuggestions, type Artwork, type SearchResult } from "./api";
   import { layoutArtwork } from "./geometry";
 
   export let active: boolean;
 
   const PIXELS_PER_CM = 5;
+  const SIDEBAR_WIDTH = 420;
 
   let query = ""; // @hmr:keep
 
@@ -54,12 +57,12 @@
       const transform = panzoomInstance.getTransform();
       panzoomInstance.smoothMoveTo(
         -0.5 * frame.clientWidth * (transform.scale - 1) -
-          PIXELS_PER_CM * transform.scale * position[0],
+          transform.scale * PIXELS_PER_CM * position[0] -
+          SIDEBAR_WIDTH / 2,
         -0.5 * frame.clientHeight * (transform.scale - 1) -
-          PIXELS_PER_CM * transform.scale * position[1]
+          transform.scale * PIXELS_PER_CM * position[1]
       );
       selected = artwork;
-      // window.open(artwork.url, "_blank");
     }
   }
 
@@ -125,6 +128,16 @@
     {/each}
   </div>
 </main>
+
+{#if selected}
+  <aside
+    class="absolute z-40 inset-y-0 right-0 bg-stone-900 shadow-2xl overflow-y-auto"
+    style:width="calc(min(100vw, {SIDEBAR_WIDTH}px))"
+    transition:fly={{ x: SIDEBAR_WIDTH, y: 0, duration: 300, easing: cubicOut }}
+  >
+    <Sidebar artwork={selected} on:close={() => (selected = null)} />
+  </aside>
+{/if}
 
 <style lang="postcss">
   .rainbow-hover-border {
