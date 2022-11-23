@@ -101,7 +101,7 @@
           <a
             target="_blank"
             rel="noopener noreferrer"
-            href="https://twitter.com/ekzhang1">author</a
+            href="https://www.ekzhang.com">author</a
           >
         </p>
       </div>

@@ -131,7 +131,7 @@
 
 {#if selected}
   <aside
-    class="absolute z-40 inset-y-0 right-0 bg-stone-900 shadow-2xl overflow-y-auto"
+    class="absolute z-20 inset-y-0 right-0 bg-stone-900 shadow-2xl overflow-y-auto"
     style:width="calc(min(100vw, {SIDEBAR_WIDTH}px))"
     transition:fly={{ x: SIDEBAR_WIDTH, y: 0, duration: 300, easing: cubicOut }}
   >
