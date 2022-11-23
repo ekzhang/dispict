@@ -8,25 +8,27 @@
     )[0] as PerformanceNavigationTiming
   )?.type;
 
-  let welcome = !navigationType || navigationType === "navigate";
+  let welcome = !navigationType || navigationType === "navigate"; // @hmr:keep
 </script>
 
 <Welcome open={welcome} on:close={() => (welcome = false)} />
 
-<main class="max-w-screen-md mx-auto px-4 py-8">
-  <h1 class="text-4xl mb-4">
-    <button class="fontvar-heading" on:click={() => (welcome = true)}
-      >dispict</button
-    >
-    <span class="text-gray-400 text-xl">(tech preview)</span>
-  </h1>
+<ArtSearch active={!welcome} />
 
-  <p class="text-pink-700 border-l-4 border-pink-200 pl-3">
-    where is the actual UI, there is no UI yet, graphic design takes time, but
-    there will be a UI in the future I promise and it will be glorious –Eric
-  </p>
+<div class="absolute top-4 left-4 sm:top-8 sm:left-8">
+  <button
+    class="logo-btn text-3xl fontvar-heading"
+    on:click={() => (welcome = true)}>dispict</button
+  >
+</div>
 
-  <div class="py-6">
-    <ArtSearch />
-  </div>
-</main>
+<style lang="postcss">
+  .logo-btn {
+    outline: none;
+    transition: text-shadow 200ms;
+  }
+
+  .logo-btn:hover {
+    text-shadow: 0 0 6px rgba(0, 0, 0, 25%);
+  }
+</style>

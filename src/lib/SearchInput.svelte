@@ -22,7 +22,7 @@
 </script>
 
 <div
-  class="w-80 max-h-[200px] border border-gray-100 shadow hover:shadow-md transition-shadow overflow-y-auto"
+  class="w-80 max-h-[200px] rounded z-10 bg-white border border-gray-100 shadow hover:shadow-md transition-shadow overflow-y-auto"
 >
   <!-- svelte-ignore a11y-autofocus -->
   <div

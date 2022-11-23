@@ -1,51 +1,69 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
 
+  import SearchInput from "./SearchInput.svelte";
   import { loadSuggestions, type SearchResult } from "./api";
+  import { layoutArtwork } from "./geometry";
 
-  let query: string = "";
-  let searching = false;
+  export let active: boolean;
+
+  $: _ = active;
+
+  const PIXELS_PER_CM = 5;
+
+  let query = ""; // @hmr:keep
+
   let results: SearchResult[] = [];
+  let searching = false;
+  let abortController = new AbortController();
 
-  async function submit() {
+  async function updateResults(query: string) {
+    if (!query) {
+      results = [];
+      return;
+    }
     searching = true;
+    abortController.abort();
+    const ctrl = new AbortController();
+    abortController = ctrl;
     results = [];
     try {
-      results = await loadSuggestions(query);
+      results = await loadSuggestions(query, undefined, ctrl.signal);
     } catch (error: any) {
-      alert("an error occured: " + error.toString());
+      if (!ctrl.signal.aborted) {
+        alert("an error occured: " + error.toString());
+      }
     } finally {
       searching = false;
     }
   }
+
+  $: updateResults(query);
+  $: positions = layoutArtwork(results.map((r) => r.artwork));
 </script>
 
-<form on:submit|preventDefault={submit} class="mb-12">
-  <input
-    class="border hover:border-gray-400 transition-colors px-2 py-1 w-60"
-    placeholder="creative aesthetics tool"
-    bind:value={query}
-  />
-  <button
-    class="border hover:border-gray-400 disabled:opacity-60 transition-colors px-2 py-1"
-    type="submit"
-    disabled={searching}>Search</button
-  >
-</form>
+<main
+  class="absolute inset-0 cursor-crosshair overflow-hidden flex justify-center items-center bg-gray-50"
+>
+  <SearchInput bind:value={query} />
 
-<div class="space-y-4">
-  {#each results.slice(0, 40) as result (result)}
-    <div class="py-2" transition:fade>
+  {#each results.slice(0, 50) as result, i (result)}
+    <div
+      class="absolute"
+      transition:fade
+      style:transform="translate(
+      {positions[i][0] * PIXELS_PER_CM}px,
+      {positions[i][1] * PIXELS_PER_CM}px)"
+    >
       <a href={result.artwork.url}>
         <img
-          class="inline-block max-w-[min(36rem,100%)]"
+          class="inline-block object-contain bg-gray-100 hover:ring hover:ring-black"
+          style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
+          style:height="{result.artwork.dimheight * PIXELS_PER_CM}px"
           src={result.artwork.image_url + "?width=800"}
           alt={result.artwork.title}
         />
       </a>
-      <p class="py-4 text-medium">
-        {result.artwork.title} ({result.artwork.dated})
-      </p>
     </div>
   {/each}
-</div>
+</main>

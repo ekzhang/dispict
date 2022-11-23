@@ -46,10 +46,11 @@ const API_URL =
 /** Queries the dispict backend API for artwork matching a text phrase. */
 export async function loadSuggestions(
   text: string,
-  n?: number
+  n?: number,
+  signal?: AbortSignal
 ): Promise<SearchResult[]> {
   let url = API_URL + "?text=" + encodeURIComponent(text);
   if (n) url += "&n=" + n;
-  const resp = await fetch(url);
+  const resp = await fetch(url, { signal });
   return await resp.json();
 }
