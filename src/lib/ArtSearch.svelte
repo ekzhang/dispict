@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fade } from "svelte/transition";
+  import debounce from "lodash.debounce";
 
   import SearchInput from "./SearchInput.svelte";
   import { loadSuggestions, type SearchResult } from "./api";
@@ -28,7 +29,7 @@
     abortController = ctrl;
     results = [];
     try {
-      results = await loadSuggestions(query, undefined, ctrl.signal);
+      results = await loadSuggestions(query, 64, ctrl.signal);
     } catch (error: any) {
       if (!ctrl.signal.aborted) {
         alert("an error occured: " + error.toString());
@@ -38,16 +39,18 @@
     }
   }
 
-  $: updateResults(query);
+  const updateResultsDebounced = debounce(updateResults, 150);
+  $: updateResultsDebounced(query);
+
   $: positions = layoutArtwork(results.map((r) => r.artwork));
 </script>
 
 <main
-  class="absolute inset-0 cursor-crosshair overflow-hidden flex justify-center items-center bg-gray-50"
+  class="absolute inset-0 overflow-hidden flex justify-center items-center bg-gray-50"
 >
   <SearchInput bind:value={query} searching={searching > 0} />
 
-  {#each results.slice(0, 50) as result, i (result)}
+  {#each results as result, i (result)}
     <div
       class="absolute"
       transition:fade
@@ -55,7 +58,12 @@
       {positions[i][0] * PIXELS_PER_CM}px,
       {positions[i][1] * PIXELS_PER_CM}px)"
     >
-      <a href={result.artwork.url} target="_blank" rel="noopener noreferrer">
+      <a
+        href={result.artwork.url}
+        class="cursor-default"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
         <img
           class="inline-block object-contain bg-gray-100 rainbow-hover-border"
           style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
