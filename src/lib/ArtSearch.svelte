@@ -32,9 +32,19 @@
     "vivid dreams",
     "baby jesus",
     "the light of god",
+    "rainbow dreams",
+    "urban planning",
   ];
 
-  let query = STARTER_INPUTS[Math.floor(Math.random() * STARTER_INPUTS.length)]; // @hmr:keep
+  function randomInput(exclude?: string) {
+    while (true) {
+      const value =
+        STARTER_INPUTS[Math.floor(Math.random() * STARTER_INPUTS.length)];
+      if (value !== exclude) return value;
+    }
+  }
+
+  let query = randomInput(); // @hmr:keep
 
   let frame: HTMLDivElement;
   let panzoomInstance: PanZoom;
@@ -116,7 +126,11 @@
 
 <main class="absolute inset-0 overflow-hidden bg-gray-50">
   <div class="w-full h-full flex justify-center items-center" bind:this={frame}>
-    <SearchInput bind:value={query} searching={searching > 0} />
+    <SearchInput
+      bind:value={query}
+      searching={searching > 0}
+      on:refresh={() => (query = randomInput(query))}
+    />
 
     {#each results as result, i (result)}
       <div

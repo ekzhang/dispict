@@ -1,4 +1,8 @@
 <script lang="ts">
+  import { createEventDispatcher } from "svelte";
+
+  const dispatch = createEventDispatcher<{ refresh: void }>();
+
   export let value: string = "";
   export let searching: boolean = false;
 
@@ -77,6 +81,28 @@
         /></svg
       >
     </div>
+  {:else}
+    <button
+      class="absolute right-2.5 bottom-2.5 text-gray-400 hover:text-gray-700"
+      on:click={() => dispatch("refresh")}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="feather feather-refresh-cw"
+        ><polyline points="23 4 23 10 17 10" /><polyline
+          points="1 20 1 14 7 14"
+        /><path
+          d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+        /></svg
+      >
+    </button>
   {/if}
 </div>
 
