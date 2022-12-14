@@ -41,6 +41,7 @@ if stub.is_inside(stub.clip_image):
     image=stub.clip_image,
     shared_volumes={"/root/.cache": sv},
     concurrency_limit=20,
+    keep_warm=True,
 )
 def run_clip_text(texts: list[str]):
     """Run pretrained CLIP on a list of texts.
@@ -186,10 +187,11 @@ if stub.is_inside(stub.webhook_image):
         modal.Mount("/data", local_file="data/artmuseums-clean.json"),
         modal.Mount("/data", local_file="data/embeddings.hdf5"),
     ],
+    keep_warm=True,
 )
 def suggestions(text: str, n: int = 50) -> list[SearchResult]:
     """Return a list of artworks that are similar to the given text."""
-    features = run_clip_text([text])[0, :]
+    features = run_clip_text.call([text])[0, :]
     features /= np.linalg.norm(features)
     scores = embeddings @ features
     index_array = np.argsort(scores)
