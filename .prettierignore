@@ -1,1 +1,5 @@
 /data
+
+dist/
+dist-ssr/
+*.local
