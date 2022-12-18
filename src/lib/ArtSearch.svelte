@@ -168,7 +168,7 @@
             style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
             style:height="{result.artwork.dimheight * PIXELS_PER_CM}px"
             draggable="false"
-            src={result.artwork.image_url + "?width=800"}
+            src={result.artwork.image_url}
             alt={result.artwork.title}
           />
         </button>
