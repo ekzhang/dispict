@@ -164,16 +164,15 @@ export class TouchZoom {
     const totalTime = 350; // milliseconds
 
     const start = this.center;
-    const startZ = Math.log(this.zoom);
-    const finishZ = Math.log(zoom);
+    const startZ = 1 / this.zoom;
+    const finishZ = 1 / zoom;
     while (true) {
       const t = Date.now() - beginTime;
       if (t > totalTime) break;
-      const progress = t / totalTime;
+      const k = smoothstep(t / totalTime);
 
-      this.center = Vec.lrp(start, pos, smoothstep(progress));
-      const k = smoothstep(Math.pow(progress, 1.8)); // more ease-in
-      this.zoom = Math.exp(startZ * (1 - k) + finishZ * k);
+      this.center = Vec.lrp(start, pos, k);
+      this.zoom = 1 / (startZ * (1 - k) + finishZ * k);
       this.#moved(false);
       await new Promise((resolve) => requestAnimationFrame(resolve));
     }
