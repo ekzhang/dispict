@@ -101,6 +101,7 @@
   }
 
   let results: SearchResult[] = [];
+  let apiError: string | null = null;
   let searching = 0;
   let abortController = new AbortController();
 
@@ -114,9 +115,10 @@
     try {
       if (!query) return;
       results = await loadSuggestions(query, 64, ctrl.signal);
+      apiError = null;
     } catch (error: any) {
       if (!ctrl.signal.aborted) {
-        alert("an error occured: " + error.toString());
+        apiError = "There was an error finding the artwork.";
       }
     } finally {
       searching--;
@@ -140,6 +142,13 @@
         searching={searching > 0}
         on:refresh={() => (query = randomInput(query))}
       />
+      {#if apiError}
+        <p
+          class="absolute text-center w-80 mt-3 p-1 rounded bg-red-500/20 text-red-800"
+        >
+          {apiError}
+        </p>
+      {/if}
     </div>
 
     {#each results as result, i (result)}
