@@ -76,6 +76,44 @@
     )`;
   }
 
+  /** Adaptively adjust image size based on visibility and screen size. */
+  function getDetail(
+    artwork: Artwork,
+    pos: number[],
+    center: number[],
+    zoom: number
+  ): string {
+    const pxBounding = [
+      zoom * ((pos[0] - artwork.dimwidth / 2) * PIXELS_PER_CM - center[0]),
+      zoom * ((pos[0] + artwork.dimwidth / 2) * PIXELS_PER_CM - center[0]),
+      zoom * ((pos[1] - artwork.dimheight / 2) * PIXELS_PER_CM - center[1]),
+      zoom * ((pos[1] + artwork.dimheight / 2) * PIXELS_PER_CM - center[1]),
+    ];
+    const windowSize = [
+      -frame.clientWidth / 2,
+      frame.clientWidth / 2,
+      -frame.clientHeight / 2,
+      frame.clientHeight / 2,
+    ];
+    const physicalWidth =
+      window.devicePixelRatio * zoom * artwork.dimwidth * PIXELS_PER_CM;
+    // Not visible, outside the window.
+    if (
+      pxBounding[0] > 1.15 * windowSize[1] ||
+      pxBounding[1] < 1.15 * windowSize[0] ||
+      pxBounding[2] > 1.15 * windowSize[3] ||
+      pxBounding[3] < 1.15 * windowSize[2]
+    ) {
+      return "?width=400";
+    } else if (physicalWidth < 400) {
+      return "?width=400";
+    } else if (physicalWidth < 800) {
+      return "?width=800";
+    } else {
+      return "";
+    }
+  }
+
   /** Handle when an artwork is selected for more details. */
   function handleSelect(artwork: Artwork, pos: [number, number]) {
     if (lastMove < Date.now() - 50 && !touchZoom.isPinching) {
@@ -168,7 +206,8 @@
             style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
             style:height="{result.artwork.dimheight * PIXELS_PER_CM}px"
             draggable="false"
-            src={result.artwork.image_url}
+            src={result.artwork.image_url +
+              getDetail(result.artwork, positions[i], center, zoom)}
             alt={result.artwork.title}
           />
         </button>
