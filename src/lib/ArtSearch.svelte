@@ -70,10 +70,10 @@
   });
 
   function getTransform(pos: number[], center: number[], zoom: number): string {
-    return `translate(
-      ${zoom * (pos[0] * PIXELS_PER_CM - center[0])}px,
-      ${zoom * (pos[1] * PIXELS_PER_CM - center[1])}px
-    ) scale(${(zoom * 100).toFixed(3)}%)`;
+    return `scale(${(zoom * 100).toFixed(3)}%) translate(
+      ${pos[0] * PIXELS_PER_CM - center[0]}px,
+      ${pos[1] * PIXELS_PER_CM - center[1]}px
+    )`;
   }
 
   /** Handle when an artwork is selected for more details. */
