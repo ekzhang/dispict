@@ -83,7 +83,7 @@
     </div>
   {:else}
     <button
-      class="absolute right-2.5 bottom-2.5 text-gray-400 hover:text-gray-700"
+      class="absolute right-1 bottom-1 p-1.5 text-gray-400 hover:text-gray-700"
       on:click={() => dispatch("refresh")}
     >
       <svg

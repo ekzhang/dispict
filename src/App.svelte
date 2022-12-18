@@ -13,7 +13,7 @@
 
 <Welcome open={welcome} on:close={() => (welcome = false)} />
 
-<ArtSearch active={!welcome} />
+<ArtSearch />
 
 <div class="absolute top-4 left-4 sm:top-8 sm:left-8">
   <button

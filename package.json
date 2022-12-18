@@ -13,8 +13,9 @@
   "dependencies": {
     "@fontsource/roboto-flex": "^4.5.2",
     "@fontsource/source-serif-4": "^4.5.16",
+    "@tldraw/vec": "^1.8.0",
+    "@use-gesture/vanilla": "^10.2.23",
     "lodash.debounce": "^4.0.8",
-    "panzoom": "^9.4.3",
     "rbush": "^3.0.1",
     "svelte": "^3.55.0"
   },

@@ -2,15 +2,13 @@
   import { onMount } from "svelte";
   import { cubicOut } from "svelte/easing";
   import { fade, fly } from "svelte/transition";
-  import panzoom, { type PanZoom } from "panzoom";
   import debounce from "lodash.debounce";
 
   import SearchInput from "./SearchInput.svelte";
   import Sidebar from "./Sidebar.svelte";
   import { loadSuggestions, type Artwork, type SearchResult } from "./api";
   import { layoutArtwork } from "./geometry";
-
-  export let active: boolean;
+  import { TouchZoom } from "./touchZoom";
 
   const PIXELS_PER_CM = 5;
   const SIDEBAR_WIDTH = 420;
@@ -49,49 +47,54 @@
   let query = randomInput(); // @hmr:keep
 
   let frame: HTMLDivElement;
-  let panzoomInstance: PanZoom;
-  let moving = false;
-  let lastPanzoom = 0;
+  let touchZoom: TouchZoom;
+  let center = [0, 0];
+  let zoom = 1;
+  let lastMove = 0;
 
   let selected: Artwork | null = null;
 
   onMount(() => {
-    panzoomInstance = panzoom(frame, {
-      zoomSpeed: 0.1,
-      minZoom: 0.2,
-      maxZoom: 10,
-    });
-    panzoomInstance.on("panstart", () => {
-      (document.activeElement as HTMLElement).blur();
-      moving = true;
-      selected = null;
-    });
-    panzoomInstance.on("panend", () => {
-      moving = false;
-      lastPanzoom = Date.now();
-    });
-    panzoomInstance.on("zoom", () => {
-      lastPanzoom = Date.now();
-      selected = null;
+    touchZoom = new TouchZoom(frame);
+    touchZoom.onMove((manual) => {
+      center = touchZoom.center;
+      zoom = touchZoom.zoom;
+      if (manual) {
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        lastMove = Date.now();
+        selected = null;
+      }
     });
   });
 
-  $: if (panzoomInstance) {
-    if (active) panzoomInstance.resume();
-    else panzoomInstance.pause();
+  function getTransform(pos: number[], center: number[], zoom: number): string {
+    return `translate(
+      ${zoom * (pos[0] * PIXELS_PER_CM - center[0])}px,
+      ${zoom * (pos[1] * PIXELS_PER_CM - center[1])}px
+    ) scale(${(zoom * 100).toFixed(3)}%)`;
   }
 
   /** Handle when an artwork is selected for more details. */
-  function handleSelect(artwork: Artwork, position: [number, number]) {
-    // Hack to prevent click events after panning is finished.
-    if (!moving && lastPanzoom < Date.now() - 30) {
-      const transform = panzoomInstance.getTransform();
-      panzoomInstance.smoothMoveTo(
-        -0.5 * frame.clientWidth * (transform.scale - 1) -
-          transform.scale * PIXELS_PER_CM * position[0] -
-          SIDEBAR_WIDTH / 2,
-        -0.5 * frame.clientHeight * (transform.scale - 1) -
-          transform.scale * PIXELS_PER_CM * position[1]
+  function handleSelect(artwork: Artwork, pos: [number, number]) {
+    if (lastMove < Date.now() - 50 && !touchZoom.isPinching) {
+      const sidebarOffset =
+        frame.clientWidth > SIDEBAR_WIDTH ? SIDEBAR_WIDTH : 0;
+      const desiredZoom =
+        0.8 *
+        Math.min(
+          frame.clientHeight / (artwork.dimheight * PIXELS_PER_CM),
+          (frame.clientWidth - sidebarOffset) /
+            (artwork.dimwidth * PIXELS_PER_CM)
+        );
+
+      touchZoom.moveTo(
+        [
+          pos[0] * PIXELS_PER_CM + (0.5 * sidebarOffset) / desiredZoom,
+          pos[1] * PIXELS_PER_CM,
+        ],
+        desiredZoom
       );
       selected = artwork;
     }
@@ -127,20 +130,23 @@
 </script>
 
 <main class="absolute inset-0 overflow-hidden bg-gray-50">
-  <div class="w-full h-full flex justify-center items-center" bind:this={frame}>
-    <SearchInput
-      bind:value={query}
-      searching={searching > 0}
-      on:refresh={() => (query = randomInput(query))}
-    />
+  <div
+    class="w-full h-full flex justify-center items-center touch-none"
+    bind:this={frame}
+  >
+    <div style:transform={getTransform([0, 0], center, zoom)}>
+      <SearchInput
+        bind:value={query}
+        searching={searching > 0}
+        on:refresh={() => (query = randomInput(query))}
+      />
+    </div>
 
     {#each results as result, i (result)}
       <div
         class="absolute"
+        style:transform={getTransform(positions[i], center, zoom)}
         transition:fade
-        style:transform="translate(
-        {positions[i][0] * PIXELS_PER_CM}px,
-        {positions[i][1] * PIXELS_PER_CM}px)"
       >
         <button
           class="cursor-default"
@@ -152,6 +158,7 @@
             class:grayed={selected && selected !== result.artwork}
             style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
             style:height="{result.artwork.dimheight * PIXELS_PER_CM}px"
+            draggable="false"
             src={result.artwork.image_url + "?width=800"}
             alt={result.artwork.title}
           />
@@ -173,7 +180,7 @@
 
 <style lang="postcss">
   .rainbow-hover-border {
-    border: 3px solid transparent;
+    border: 3px solid theme("colors.gray.50");
     box-sizing: content-box;
   }
   .rainbow-hover-border:hover {
