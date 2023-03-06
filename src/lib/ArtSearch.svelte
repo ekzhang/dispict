@@ -4,13 +4,13 @@
   import { fade, fly } from "svelte/transition";
   import debounce from "lodash.debounce";
 
+  import ArtImage from "./ArtImage.svelte";
   import SearchInput from "./SearchInput.svelte";
   import Sidebar from "./Sidebar.svelte";
   import { loadSuggestions, type Artwork, type SearchResult } from "./api";
-  import { layoutArtwork } from "./geometry";
+  import { layoutArtwork, PIXELS_PER_CM } from "./geometry";
   import { TouchZoom } from "./touchZoom";
 
-  const PIXELS_PER_CM = 8;
   const SIDEBAR_WIDTH = 420;
 
   const STARTER_INPUTS = [
@@ -34,6 +34,7 @@
     "urban planning",
     "oil paint flowers",
     "tender arguments",
+    "john singer sargent",
   ];
 
   function randomInput(exclude?: string) {
@@ -82,7 +83,7 @@
     pos: number[],
     center: number[],
     zoom: number
-  ): string {
+  ): number {
     const pxBounding = [
       zoom * ((pos[0] - artwork.dimwidth / 2) * PIXELS_PER_CM - center[0]),
       zoom * ((pos[0] + artwork.dimwidth / 2) * PIXELS_PER_CM - center[0]),
@@ -104,13 +105,13 @@
       pxBounding[2] > 1.15 * windowSize[3] ||
       pxBounding[3] < 1.15 * windowSize[2]
     ) {
-      return "?width=400";
+      return 400;
     } else if (physicalWidth < 400) {
-      return "?width=400";
+      return 400;
     } else if (physicalWidth < 800) {
-      return "?width=800";
+      return 800;
     } else {
-      return "";
+      return 4000; // full size
     }
   }
 
@@ -190,6 +191,7 @@
     </div>
 
     {#each results as result, i (result)}
+      {@const detail = getDetail(result.artwork, positions[i], center, zoom)}
       <div
         class="absolute"
         style:transform={getTransform(positions[i], center, zoom)}
@@ -200,15 +202,10 @@
           on:click={() => handleSelect(result.artwork, positions[i])}
           on:touchend={() => handleSelect(result.artwork, positions[i])}
         >
-          <img
-            class="inline-block object-contain bg-gray-100 rainbow-hover-border transition-opacity"
-            class:grayed={selected && selected !== result.artwork}
-            style:width="{result.artwork.dimwidth * PIXELS_PER_CM}px"
-            style:height="{result.artwork.dimheight * PIXELS_PER_CM}px"
-            draggable="false"
-            src={result.artwork.image_url +
-              getDetail(result.artwork, positions[i], center, zoom)}
-            alt={result.artwork.title}
+          <ArtImage
+            artwork={result.artwork}
+            {detail}
+            grayed={Boolean(selected) && selected !== result.artwork}
           />
         </button>
       </div>
@@ -225,25 +222,3 @@
     <Sidebar artwork={selected} on:close={() => (selected = null)} />
   </aside>
 {/if}
-
-<style lang="postcss">
-  .rainbow-hover-border {
-    border: 3px solid theme("colors.gray.50");
-    box-sizing: content-box;
-  }
-  .rainbow-hover-border:hover {
-    border-image: repeating-linear-gradient(
-      to bottom right,
-      #b827fc 0%,
-      #2c90fc 12.5%,
-      #b8fd33 25%,
-      #fec837 37.5%,
-      #fd1892 50%
-    );
-    border-image-slice: 1;
-  }
-
-  .grayed {
-    opacity: 0.4;
-  }
-</style>

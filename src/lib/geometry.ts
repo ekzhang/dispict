@@ -4,6 +4,8 @@ import RBush, { type BBox } from "rbush";
 
 import type { Artwork } from "./api";
 
+export const PIXELS_PER_CM = 8;
+
 const radiusChange = 5;
 const angleChange = (Math.sqrt(5) - 1) * Math.PI;
 const spaceBuffer = 3;
