@@ -18,14 +18,15 @@ import numpy as np
 
 stub = modal.Stub("dispict")
 
+stub.image = modal.Image.debian_slim(python_version="3.10")
+
 stub.clip_image = (
-    modal.Image.debian_slim()
-    .apt_install(["git"])
+    stub.image.apt_install(["git"])
     .pip_install(["ftfy", "regex", "tqdm", "numpy", "torch"])
     .pip_install(["git+https://github.com/openai/CLIP.git"])
 )
 
-stub.webhook_image = modal.Image.debian_slim().pip_install(["numpy", "h5py"])
+stub.webhook_image = stub.image.pip_install(["numpy", "h5py"])
 
 sv = modal.SharedVolume().persist("clip-cache")
 
@@ -174,7 +175,7 @@ class SearchResult:
 
 
 if stub.is_inside(stub.webhook_image):
-    data = read_data("/data/artmuseums-clean.json")
+    data = read_data("/data/catalog.json")
     data_by_id: dict[int, Artwork] = {}
     for row in data:
         data_by_id[row.id] = row
@@ -184,8 +185,8 @@ if stub.is_inside(stub.webhook_image):
 @stub.webhook(
     image=stub.webhook_image,
     mounts=[
-        modal.Mount("/data", local_file="data/artmuseums-clean.json"),
-        modal.Mount("/data", local_file="data/embeddings.hdf5"),
+        modal.Mount.from_local_file("data/artmuseums-clean.json", "/data/catalog.json"),
+        modal.Mount.from_local_file("data/embeddings.hdf5", "/data/embeddings.hdf5"),
     ],
     keep_warm=1,
 )
