@@ -182,7 +182,7 @@ if stub.is_inside(stub.webhook_image):
     embeddings, embeddings_ids = read_embeddings("/data/embeddings.hdf5")
 
 
-@stub.webhook(
+@stub.function(
     image=stub.webhook_image,
     mounts=[
         modal.Mount.from_local_file("data/artmuseums-clean.json", "/data/catalog.json"),
@@ -190,6 +190,7 @@ if stub.is_inside(stub.webhook_image):
     ],
     keep_warm=1,
 )
+@stub.web_endpoint()
 def suggestions(text: str, n: int = 50) -> list[SearchResult]:
     """Return a list of artworks that are similar to the given text."""
     features = run_clip_text.call([text])[0, :]
