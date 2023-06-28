@@ -13,12 +13,12 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
-import modal
 import numpy as np
+from modal import Image, Mount, SharedVolume, Stub, web_endpoint
 
-stub = modal.Stub("dispict")
+stub = Stub("dispict")
 
-stub.image = modal.Image.debian_slim(python_version="3.10")
+stub.image = Image.debian_slim(python_version="3.10")
 
 stub.clip_image = (
     stub.image.apt_install(["git"])
@@ -28,7 +28,7 @@ stub.clip_image = (
 
 stub.webhook_image = stub.image.pip_install(["numpy", "h5py"])
 
-sv = modal.SharedVolume().persist("clip-cache")
+sv = SharedVolume().persist("clip-cache")
 
 if stub.is_inside(stub.clip_image):
     import clip
@@ -185,12 +185,12 @@ if stub.is_inside(stub.webhook_image):
 @stub.function(
     image=stub.webhook_image,
     mounts=[
-        modal.Mount.from_local_file("data/artmuseums-clean.json", "/data/catalog.json"),
-        modal.Mount.from_local_file("data/embeddings.hdf5", "/data/embeddings.hdf5"),
+        Mount.from_local_file("data/artmuseums-clean.json", "/data/catalog.json"),
+        Mount.from_local_file("data/embeddings.hdf5", "/data/embeddings.hdf5"),
     ],
     keep_warm=1,
 )
-@stub.web_endpoint()
+@web_endpoint()
 def suggestions(text: str, n: int = 50) -> list[SearchResult]:
     """Return a list of artworks that are similar to the given text."""
     features = run_clip_text.call([text])[0, :]
