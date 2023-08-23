@@ -14,33 +14,37 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
-from modal import Image, Mount, SharedVolume, Stub, web_endpoint
+from modal import Image, Mount, Stub, web_endpoint
 
 stub = Stub("dispict")
 
-stub.image = Image.debian_slim(python_version="3.10")
+stub.image = Image.debian_slim(python_version="3.11")
+
+def load_clip():
+    import clip
+
+    return clip.load("ViT-B/32")
 
 stub.clip_image = (
-    stub.image.apt_install(["git"])
-    .pip_install(["ftfy", "regex", "tqdm", "numpy", "torch"])
-    .pip_install(["git+https://github.com/openai/CLIP.git"])
+    stub.image.apt_install("git")
+    .pip_install("ftfy", "regex", "tqdm", "numpy", "torch")
+    .pip_install("git+https://github.com/openai/CLIP.git")
+    .run_function(load_clip)
 )
 
-stub.webhook_image = stub.image.pip_install(["numpy", "h5py"])
+stub.webhook_image = stub.image.pip_install("numpy", "h5py")
 
-sv = SharedVolume().persist("clip-cache")
 
 if stub.is_inside(stub.clip_image):
     import clip
     import torch
 
-    model, preprocess = clip.load("ViT-B/32")
+    model, preprocess = load_clip()
     model.eval()
 
 
 @stub.function(
     image=stub.clip_image,
-    shared_volumes={"/root/.cache": sv},
     concurrency_limit=20,
     keep_warm=1,
 )
@@ -57,7 +61,6 @@ def run_clip_text(texts: list[str]):
 
 @stub.function(
     image=stub.clip_image,
-    shared_volumes={"/root/.cache": sv},
     concurrency_limit=20,
 )
 def run_clip_images(image_urls: list[str]):
@@ -193,7 +196,7 @@ if stub.is_inside(stub.webhook_image):
 @web_endpoint()
 def suggestions(text: str, n: int = 50) -> list[SearchResult]:
     """Return a list of artworks that are similar to the given text."""
-    features = run_clip_text.call([text])[0, :]
+    features = run_clip_text.remote([text])[0, :]
     features /= np.linalg.norm(features)
     scores = embeddings @ features
     index_array = np.argsort(scores)
