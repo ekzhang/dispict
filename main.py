@@ -6,9 +6,8 @@ first. This program downloads and embeds 25,000 images from the Harvard Art
 Museums, then hosts recommendations at a serverless web endpoint.
 """
 
-import argparse
 import json
-import sys
+import os
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -20,10 +19,12 @@ stub = Stub("dispict")
 
 stub.image = Image.debian_slim(python_version="3.11")
 
+
 def load_clip():
     import clip
 
     return clip.load("ViT-B/32")
+
 
 stub.clip_image = (
     stub.image.apt_install("git")
@@ -32,7 +33,7 @@ stub.clip_image = (
     .run_function(load_clip)
 )
 
-stub.webhook_image = stub.image.pip_install("numpy", "h5py")
+stub.web_image = stub.image.pip_install("numpy", "h5py")
 
 
 if stub.is_inside(stub.clip_image):
@@ -45,7 +46,6 @@ if stub.is_inside(stub.clip_image):
 
 @stub.function(
     image=stub.clip_image,
-    concurrency_limit=20,
     keep_warm=1,
 )
 def run_clip_text(texts: list[str]):
@@ -61,7 +61,7 @@ def run_clip_text(texts: list[str]):
 
 @stub.function(
     image=stub.clip_image,
-    concurrency_limit=20,
+    concurrency_limit=32,
 )
 def run_clip_images(image_urls: list[str]):
     """Run pretrained CLIP on a list of image URLs.
@@ -87,7 +87,7 @@ def run_clip_images(image_urls: list[str]):
                 request_num += 1
                 time.sleep(3.0)
                 continue
-            if resp.status_code not in (200, 403, 404):
+            if resp.status_code not in (200, 404):
                 print("Retrying", url, "due to status code", resp.status_code)
                 request_num += 1
                 time.sleep(0.1)
@@ -177,7 +177,7 @@ class SearchResult:
     artwork: Artwork
 
 
-if stub.is_inside(stub.webhook_image):
+if stub.is_inside(stub.web_image):
     data = read_data("/data/catalog.json")
     data_by_id: dict[int, Artwork] = {}
     for row in data:
@@ -185,72 +185,60 @@ if stub.is_inside(stub.webhook_image):
     embeddings, embeddings_ids = read_embeddings("/data/embeddings.hdf5")
 
 
-@stub.function(
-    image=stub.webhook_image,
-    mounts=[
-        Mount.from_local_file("data/artmuseums-clean.json", "/data/catalog.json"),
-        Mount.from_local_file("data/embeddings.hdf5", "/data/embeddings.hdf5"),
-    ],
-    keep_warm=1,
-)
-@web_endpoint()
-def suggestions(text: str, n: int = 50) -> list[SearchResult]:
-    """Return a list of artworks that are similar to the given text."""
-    features = run_clip_text.remote([text])[0, :]
-    features /= np.linalg.norm(features)
-    scores = embeddings @ features
-    index_array = np.argsort(scores)
-    return [
-        SearchResult(score=50 * (1 + scores[i]), artwork=data_by_id[embeddings_ids[i]])
-        for i in reversed(index_array[-n:])
-    ]
+if not os.environ.get("SKIP_WEB"):
+
+    @stub.function(
+        image=stub.web_image,
+        mounts=[
+            Mount.from_local_file("data/artmuseums-clean.json", "/data/catalog.json"),
+            Mount.from_local_file("data/embeddings.hdf5", "/data/embeddings.hdf5"),
+        ],
+        keep_warm=1,
+    )
+    @web_endpoint()
+    def suggestions(text: str, n: int = 50) -> list[SearchResult]:
+        """Return a list of artworks that are similar to the given text."""
+        features = run_clip_text.remote([text])[0, :]
+        features /= np.linalg.norm(features)
+        scores = embeddings @ features
+        index_array = np.argsort(scores)
+        return [
+            SearchResult(
+                score=50 * (1 + scores[i]), artwork=data_by_id[embeddings_ids[i]]
+            )
+            for i in reversed(index_array[-n:])
+        ]
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser("dispict")
-    subparsers = parser.add_subparsers(dest="sub")
+@stub.local_entrypoint()
+def embed_images():
+    import h5py
 
-    subparsers.add_parser("embed-images")
-    subparsers.add_parser("webhook")
+    data = read_data("data/artmuseums-clean.json")
 
-    args = parser.parse_args()
-    if args.sub == "embed-images":
-        import h5py
+    chunk_size = 24
+    chunked_ids = []
+    chunked_urls = []
+    for idx in range(0, len(data), chunk_size):
+        chunked_ids.append([row.id for row in data[idx : idx + chunk_size]])
+        chunked_urls.append([row.image_url for row in data[idx : idx + chunk_size]])
 
-        data = read_data("data/artmuseums-clean.json")
+    results = list(run_clip_images.map(chunked_urls))
 
-        chunk_size = 32
-        chunked_ids = []
-        chunked_urls = []
-        for idx in range(0, len(data), chunk_size):
-            chunked_ids.append([row.id for row in data[idx : idx + chunk_size]])
-            chunked_urls.append([row.image_url for row in data[idx : idx + chunk_size]])
+    all_embeddings: dict[int, np.ndarray] = {}
+    for ids, (missing, embeddings) in zip(chunked_ids, results):
+        assert len(ids) == len(missing) + len(embeddings)
+        embeddings_idx = 0
+        for i, id in enumerate(ids):
+            if i not in missing:
+                all_embeddings[id] = embeddings[embeddings_idx, :]
+                embeddings_idx += 1
 
-        with stub.run():
-            results = list(run_clip_images.map(chunked_urls))
+    print(f"Finished embedding {len(all_embeddings)} images out of {len(data)}")
 
-        all_embeddings: dict[int, np.ndarray] = {}
-        for ids, (missing, embeddings) in zip(chunked_ids, results):
-            assert len(ids) == len(missing) + len(embeddings)
-            embeddings_idx = 0
-            for i, id in enumerate(ids):
-                if i not in missing:
-                    all_embeddings[id] = embeddings[embeddings_idx, :]
-                    embeddings_idx += 1
-
-        print(f"Finished embedding {len(all_embeddings)} images out of {len(data)}")
-
-        ids, embedding_matrix = zip(*all_embeddings.items())
-        embedding_matrix = np.vstack(embedding_matrix)
-        with h5py.File("data/embeddings.hdf5", "w") as f:
-            f.create_dataset("embeddings", data=embedding_matrix)
-            f.create_dataset("ids", data=ids)
-        print("Saved to hdf5 file")
-
-    elif args.sub == "webhook":
-        print("Serving webhook at a temporary URL. Use `modal app deploy` to deploy.")
-        stub.serve()
-
-    else:
-        parser.print_help()
-        sys.exit(1)
+    ids, embedding_matrix = zip(*all_embeddings.items())
+    embedding_matrix = np.vstack(embedding_matrix)
+    with h5py.File("data/embeddings.hdf5", "w") as f:
+        f.create_dataset("embeddings", data=embedding_matrix)
+        f.create_dataset("ids", data=ids)
+    print("Saved to hdf5 file")

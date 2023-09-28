@@ -61,11 +61,11 @@ follow these steps:
 1. Run the Jupyter notebooks `notebooks/load_data.ipynb` and
    `notebooks/data_cleaning.ipynb` to download data from the Harvard Art
    Museums. This will produce two files named `data/artmuseums[-clean].json`.
-2. Run `python main.py embed-images` to spawn a parallel Modal job that
+2. Run `SKIP_WEB=1 modal run main.py` to spawn a parallel Modal job that
    downloads and embeds all images in the dataset using
    [CLIP](https://openai.com/blog/clip/), saving the results to
    `data/embeddings.hdf5`.
-3. Run `modal app deploy main.py` to create your webhook, which then gives you a
+3. Run `modal deploy main.py` to create the web endpoint, which then gives you a
    public URL such as `https://ekzhang-dispict-suggestions.modal.run`.
 
 You can start sending requests to the URL to get recommendations. For example,
