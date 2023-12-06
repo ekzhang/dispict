@@ -36,7 +36,7 @@ stub.clip_image = (
 stub.web_image = stub.image.pip_install("numpy", "h5py")
 
 
-if stub.is_inside(stub.clip_image):
+with stub.clip_image.run_inside():
     import clip
     import torch
 
@@ -177,7 +177,7 @@ class SearchResult:
     artwork: Artwork
 
 
-if stub.is_inside(stub.web_image):
+with stub.web_image.run_inside():
     data = read_data("/data/catalog.json")
     data_by_id: dict[int, Artwork] = {}
     for row in data:
