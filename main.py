@@ -26,17 +26,18 @@ def load_clip():
     return clip.load("ViT-B/32")
 
 
-stub.clip_image = (
+clip_image = (
     stub.image.apt_install("git")
     .pip_install("ftfy", "regex", "tqdm", "numpy", "torch")
     .pip_install("git+https://github.com/openai/CLIP.git")
     .run_function(load_clip)
+    .env({"INSIDE": "clip_image"})
 )
 
-stub.web_image = stub.image.pip_install("numpy", "h5py")
+web_image = stub.image.pip_install("numpy", "h5py").env({"INSIDE": "web_image"})
 
 
-with stub.clip_image.run_inside():
+if os.environ.get("INSIDE") == "clip_image":
     import clip
     import torch
 
@@ -45,7 +46,7 @@ with stub.clip_image.run_inside():
 
 
 @stub.function(
-    image=stub.clip_image,
+    image=clip_image,
     keep_warm=1,
 )
 def run_clip_text(texts: list[str]):
@@ -60,7 +61,7 @@ def run_clip_text(texts: list[str]):
 
 
 @stub.function(
-    image=stub.clip_image,
+    image=clip_image,
     concurrency_limit=32,
 )
 def run_clip_images(image_urls: list[str]):
@@ -177,7 +178,7 @@ class SearchResult:
     artwork: Artwork
 
 
-with stub.web_image.run_inside():
+if os.environ.get("INSIDE") == "web_image":
     data = read_data("/data/catalog.json")
     data_by_id: dict[int, Artwork] = {}
     for row in data:
@@ -188,7 +189,7 @@ with stub.web_image.run_inside():
 if not os.environ.get("SKIP_WEB"):
 
     @stub.function(
-        image=stub.web_image,
+        image=web_image,
         mounts=[
             Mount.from_local_file("data/artmuseums-clean.json", "/data/catalog.json"),
             Mount.from_local_file("data/embeddings.hdf5", "/data/embeddings.hdf5"),
