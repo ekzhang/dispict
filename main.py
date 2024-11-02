@@ -13,11 +13,11 @@ from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
-from modal import Image, Mount, Stub, web_endpoint
+import modal
 
-stub = Stub("dispict")
+app = modal.App("dispict")
 
-stub.image = Image.debian_slim(python_version="3.11")
+app.image = modal.Image.debian_slim(python_version="3.11")
 
 
 def load_clip():
@@ -27,14 +27,14 @@ def load_clip():
 
 
 clip_image = (
-    stub.image.apt_install("git")
+    app.image.apt_install("git")
     .pip_install("ftfy", "regex", "tqdm", "numpy", "torch")
     .pip_install("git+https://github.com/openai/CLIP.git")
     .run_function(load_clip)
     .env({"INSIDE": "clip_image"})
 )
 
-web_image = stub.image.pip_install("numpy", "h5py").env({"INSIDE": "web_image"})
+web_image = app.image.pip_install("numpy", "h5py").env({"INSIDE": "web_image"})
 
 
 if os.environ.get("INSIDE") == "clip_image":
@@ -45,7 +45,7 @@ if os.environ.get("INSIDE") == "clip_image":
     model.eval()
 
 
-@stub.function(
+@app.function(
     image=clip_image,
     keep_warm=1,
 )
@@ -60,7 +60,7 @@ def run_clip_text(texts: list[str]):
         return model.encode_text(text_tokens).float().numpy()
 
 
-@stub.function(
+@app.function(
     image=clip_image,
     concurrency_limit=32,
 )
@@ -188,15 +188,19 @@ if os.environ.get("INSIDE") == "web_image":
 
 if not os.environ.get("SKIP_WEB"):
 
-    @stub.function(
+    @app.function(
         image=web_image,
         mounts=[
-            Mount.from_local_file("data/artmuseums-clean.json", "/data/catalog.json"),
-            Mount.from_local_file("data/embeddings.hdf5", "/data/embeddings.hdf5"),
+            modal.Mount.from_local_file(
+                "data/artmuseums-clean.json", "/data/catalog.json"
+            ),
+            modal.Mount.from_local_file(
+                "data/embeddings.hdf5", "/data/embeddings.hdf5"
+            ),
         ],
         keep_warm=1,
     )
-    @web_endpoint()
+    @modal.web_endpoint()
     def suggestions(text: str, n: int = 50) -> list[SearchResult]:
         """Return a list of artworks that are similar to the given text."""
         features = run_clip_text.remote([text])[0, :]
@@ -211,7 +215,7 @@ if not os.environ.get("SKIP_WEB"):
         ]
 
 
-@stub.local_entrypoint()
+@app.local_entrypoint()
 def embed_images():
     import h5py
 
