@@ -66,7 +66,7 @@ follow these steps:
    [CLIP](https://openai.com/blog/clip/), saving the results to
    `data/embeddings.hdf5`.
 3. Run `modal deploy main.py` to create the web endpoint, which then gives you a
-   public URL such as `https://ekzhang-dispict-suggestions.modal.run`.
+   public URL such as `https://ekzhang--dispict-suggestions.modal.run`.
 
 You can start sending requests to the URL to get recommendations. For example,
 `GET /?text=apple` will find artwork related to apples, such as the image shown

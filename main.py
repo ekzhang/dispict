@@ -201,7 +201,7 @@ if not os.environ.get("SKIP_WEB"):
         keep_warm=1,
     )
     @modal.web_endpoint()
-    def suggestions(text: str, n: int = 50) -> list[SearchResult]:
+    def suggestions(text: str, n: int = 50) -> list:
         """Return a list of artworks that are similar to the given text."""
         features = run_clip_text.remote([text])[0, :]
         features /= np.linalg.norm(features)
@@ -209,7 +209,7 @@ if not os.environ.get("SKIP_WEB"):
         index_array = np.argsort(scores)
         return [
             SearchResult(
-                score=50 * (1 + scores[i]), artwork=data_by_id[embeddings_ids[i]]
+                score=50 * float(1 + scores[i]), artwork=data_by_id[embeddings_ids[i]]
             )
             for i in reversed(index_array[-n:])
         ]

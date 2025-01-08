@@ -41,7 +41,7 @@ export type SearchResult = {
 
 const API_URL =
   import.meta.env.VITE_APP_API_URL ??
-  "https://ekzhang-dispict-suggestions.modal.run/";
+  "https://ekzhang--dispict-suggestions.modal.run/";
 
 /** Queries the dispict backend API for artwork matching a text phrase. */
 export async function loadSuggestions(
